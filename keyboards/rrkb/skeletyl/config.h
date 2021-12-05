@@ -15,6 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+* Changes made to the original kb to accomodate my hand soldering
+* RR - 19/11/2021
+*/
+
 #pragma once
 #include "config_common.h"
 #define VENDOR_ID 0xA8F8
@@ -23,25 +28,53 @@
 #define MANUFACTURER Bastard Keyboards
 #define PRODUCT Skeletyl
 
-#define MATRIX_ROWS 8
-#define MATRIX_COLS 5
+#define MATRIX_ROWS 6
+#define MATRIX_COLS 6
 #define RGBLIGHT_LIMIT_VAL 180
-#define MATRIX_ROW_PINS { B5, F7, F6, B6 }
-#define MATRIX_COL_PINS { E6, C6, B1, B3, B2 }
+#define MATRIX_ROW_PINS { F7, B1, B3 }
+#define MATRIX_COL_PINS { B5, B4, E6, D7, C6, B2 }
 
-#define DIODE_DIRECTION ROW2COL
+#define DIODE_DIRECTION COL2ROW //Left side works with this setting
+// #define DIODE_DIRECTION ROW2COL
 
-#define RGB_DI_PIN D2
-#define RGBLED_NUM 36
-#define RGBLED_SPLIT { 18, 18 }
+#define RGB_DI_PIN B6
+#define RGBLED_NUM 8
+#define RGBLED_SPLIT { 4, 4 }
 #define RGBLIGHT_ANIMATIONS
+#define RGBLIGHT_LAYERS
+#define WS2812_BYTE_ORDER WS2812_BYTE_ORDER_RGB
 
 #define DEBOUNCE 5
 
-#define SOFT_SERIAL_PIN D0
+//#define USE_I2C
+#define SOFT_SERIAL_PIN D1
+#define USE_SERIAL
+#define SELECT_SOFT_SERIAL_SPEED 0
+//#define SERIAL_USE_MULTI_TRANSACTION
 
-#define USB_POLLING_INTERVAL_MS 1
-#define MASTER_RIGHT
+//#define USB_POLLING_INTERVAL_MS 1
+//define SPLIT_USB_DETECT
+#define SPLIT_HAND_PIN D4
+#define MASTER_LEFT
+//#define MASTER_RIGHT
+//#define EE_HANDS
+#define SPLIT_CONNECTION_CHECK_TIMEOUT 500
+//#define SPLIT_MAX_CONNECTION_ERRORS 10
+//#define FORCED_SYNC_THROTTLE_MS 100
+
+//#define DEBUG_MATRIX_SCAN_RATE
+
+#define ONESHOT_TAP_TOGGLE 1  /* Tapping this number of times holds the key until tapped once again. */
+#define ONESHOT_TIMEOUT 500  /* Time (in ms) before the one shot key is released */
+#define TAPPING_TERM 175
+#define TAPPING_TOGGLE 1
+
+#define PERMISSIVE_HOLD
+#define HOLD_ON_OTHER_KEY_PRESS
+
+//#define AUTO_SHIFT_TIMEOUT 200
+//#define NO_AUTO_SHIFT_SPECIAL
+//#define TAPPING_FORCE_HOLD
 
 // RGB matrix support
 #ifdef RGB_MATRIX_ENABLE
