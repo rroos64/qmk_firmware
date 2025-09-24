@@ -66,11 +66,17 @@
 
 #define ONESHOT_TAP_TOGGLE 1  /* Tapping this number of times holds the key until tapped once again. */
 #define ONESHOT_TIMEOUT 500  /* Time (in ms) before the one shot key is released */
-#define TAPPING_TERM 175
+#define TAPPING_TERM 200
 #define TAPPING_TOGGLE 1
 
 #define PERMISSIVE_HOLD
 #define HOLD_ON_OTHER_KEY_PRESS
+#define IGNORE_MOD_TAP_INTERRUPT
+
+// Combos (for both-thumbs PDF)
+#define COMBO_TERM 50
+// How long both thumbs must be held to trigger PDF swap (ms)
+#define PDF_HOLD_MS 350
 
 //#define AUTO_SHIFT_TIMEOUT 200
 //#define NO_AUTO_SHIFT_SPECIAL

@@ -22,6 +22,7 @@
 #define _NUM 1
 #define _SPEC 2
 #define _NAV 3
+#define _DH 4
 
 // Tap Dance declarations
 enum {
@@ -157,7 +158,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * |  SHF/Z  |    X    |    C    |    V    |    B    |                      |    N    |    M    |   < ,   |   > .   | SHF/ /? |
  * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
  *                                .--------.--------.--------.      .--------.--------.--------.
- *                                |  _NUM  |  _SPEC |  _NUM  |      |ENT/CTRL|SPC/WIN |ALT/BSP |
+ *                                |  _NUM  |  _SPEC |  _NAV  |      |ENT/CTRL|SPC/WIN |ALT/BSP |
  *                                .--------.--------.--------.      .--------.--------.--------.
  */
 

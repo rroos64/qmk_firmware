@@ -11,8 +11,11 @@ BOOTMAGIC_ENABLE = no     # Virtual DIP switch configuration
 MOUSEKEY_ENABLE = yes       # Mouse keys
 EXTRAKEY_ENABLE = yes       # Audio control and System control
 TAP_DANCE_ENABLE = yes
+COMBO_ENABLE = yes		# Combo keys
 #AUTO_SHIFT_ENABLE = yes
 
+#define PDF_HOLD_MS 350
+#define PDF_HOLD_MS 350
 # Debug settigs
 #
 #DEBUG_ENABLE= yes
