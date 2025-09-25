@@ -55,8 +55,9 @@
 //#define USB_POLLING_INTERVAL_MS 1
 //define SPLIT_USB_DETECT
 #define SPLIT_HAND_PIN D4
+// #define SPLIT_HAND_PIN_LOW_IS_LEFT   // <— invert: LOW = left, HIGH = right
 #define MASTER_LEFT
-//#define MASTER_RIGHT
+// #define MASTER_RIGHT
 //#define EE_HANDS
 #define SPLIT_CONNECTION_CHECK_TIMEOUT 500
 //#define SPLIT_MAX_CONNECTION_ERRORS 10
@@ -73,6 +74,10 @@
 #define HOLD_ON_OTHER_KEY_PRESS
 #define IGNORE_MOD_TAP_INTERRUPT
 
+// Let combos see LT() and other action keys
+#define COMBO_ALLOW_ACTION_KEYS
+// Per-combo tuning hooks (so we can make this combo “hold-only”)
+#define COMBO_TERM_PER_COMBO
 // Combos (for both-thumbs PDF)
 #define COMBO_TERM 50
 // How long both thumbs must be held to trigger PDF swap (ms)

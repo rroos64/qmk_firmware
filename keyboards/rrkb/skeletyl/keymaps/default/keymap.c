@@ -49,20 +49,69 @@ enum {
     TD_SHFT_CAPS
 };
 
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  // If console is enabled, it will print the matrix position and status of each key pressed
-#ifdef CONSOLE_ENABLE
-    uprintf("KL: kc: 0x%04X, col: %u, row: %u, pressed: %b, time: %u, interrupt: %b, count: %u\n", keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
-#endif
-  return true;
+// --- Custom keycode to toggle default layer persistently (QW <-> DH)
+enum custom_keycodes {
+  PDF_QW = SAFE_RANGE,  // set default to _BASE
+  PDF_DH,               // set default to _DH
+  PDF_TOG,              // toggle default between _BASE and _DH
 };
 
-void dance_ons_shft_caps(qk_tap_dance_state_t *state, void *user_data) {
-    if (state->count == 1) {
-        register_code16(OSM(MOD_LSFT));
-    } else {
-        register_code(KC_CAPS);
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        switch (keycode) {
+            case PDF_QW:
+                set_single_persistent_default_layer(_BASE);
+                return false;
+            case PDF_DH:
+                set_single_persistent_default_layer(_DH);
+                return false;
+            case PDF_TOG:
+                if (layer_state_cmp(default_layer_state, _DH)) {
+                    set_single_persistent_default_layer(_BASE);
+                } else {
+                    set_single_persistent_default_layer(_DH);
+                }
+                return false;
+        }
     }
+    return true;
+};
+
+// --- Combos
+enum combo_events {
+  CB_PDF_TOG,   // both-thumbs persistent flip
+  COMBO_LENGTH
+};
+
+// replace these with your actual **outer-left** and **outer-right** thumb keys:
+const uint16_t PROGMEM pdf_tog_combo[] = { LT(_NAV, KC_ESC), KC_ENT, COMBO_END };
+// Left outer thumb is an LT() key (Esc/Tab on tap, SPEC/NAV on hold).
+// Right outer thumb is Backspace on base, per your layout.
+combo_t key_combos[COMBO_LENGTH] = {
+  [CB_PDF_TOG] = COMBO(pdf_tog_combo, PDF_TOG),
+};
+
+// --- Make this combo *hold-only* and give it a slightly longer window
+// Let QMK know how many combos exist
+uint16_t COMBO_LEN = sizeof(key_combos) / sizeof(key_combos[0]);
+
+uint16_t get_combo_term(uint16_t index, combo_t *combo) {
+  switch (index) {
+    case CB_PDF_TOG:
+      // A bit above TAPPING_TERM avoids accidental taps; tweak to taste
+      return TAPPING_TERM + 75;
+  }
+  return COMBO_TERM;
+}
+
+bool get_combo_must_hold(uint16_t index, combo_t *combo) {
+  // Require holds (prevents taps from ever firing the combo)
+  return (index == CB_PDF_TOG);
+}
+
+void dance_ons_shft_caps(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->count == 1) { tap_code16(OSM(MOD_LSFT)); }
+    else { tap_code(KC_CAPS); }
 };
 
 // Tap Dance definitions
@@ -87,8 +136,8 @@ qk_tap_dance_action_t tap_dance_actions[] = {
     [TD_SHFT_L] = ACTION_TAP_DANCE_DOUBLE(KC_LEFT, LSFT(KC_LEFT)),
     [TD_SHFT_HOME] = ACTION_TAP_DANCE_DOUBLE(KC_HOME, LSFT(KC_HOME)),
     [TD_SHFT_END] = ACTION_TAP_DANCE_DOUBLE(KC_END, LSFT(KC_END)),
-    [TD_P_DEL] = ACTION_TAP_DANCE_DOUBLE(KC_P, KC_DEL),
-    [TD_SHFT_CAPS] = ACTION_TAP_DANCE_FN(dance_ons_shft_caps),
+    [TD_P_DEL]      = ACTION_TAP_DANCE_DOUBLE(KC_P, KC_DEL),
+    [TD_SHFT_CAPS]  = ACTION_TAP_DANCE_FN_ADVANCED(NULL, dance_ons_shft_caps, NULL),
 };
 
 // Light LEDs 4 and 8 red when caps lock is active. Hard to ignore!
@@ -113,13 +162,18 @@ const rgblight_segment_t PROGMEM my_nav_layer[] = RGBLIGHT_LAYER_SEGMENTS(
     {0, 8, HSV_BLUE}
 );
 
+const rgblight_segment_t PROGMEM my_dh_hint_layer[] = RGBLIGHT_LAYER_SEGMENTS(
+    { 0, 2, HSV_TURQUOISE }  // small, subtle hint (LEDs 0–1)
+);
+
 // Now define the array of layers. Later layers take precedence
 const rgblight_segment_t* const PROGMEM my_rgb_layers[] = RGBLIGHT_LAYERS_LIST(
     my_base_layer,
     my_capslock_layer,  // Overrides base layer
     my_num_layer,    // Overrides other layers
     my_spec_layer,     // Overrides other layers
-    my_nav_layer
+    my_nav_layer,
+    my_dh_hint_layer
 );
 
 void keyboard_post_init_user(void) {
@@ -134,6 +188,8 @@ bool led_update_user(led_t led_state) {
 
 layer_state_t default_layer_state_set_user(layer_state_t state) {
     rgblight_set_layer_state(0, layer_state_cmp(state, _BASE));
+    // DH hint lights only when _DH is default (persisted)
+    rgblight_set_layer_state(5, layer_state_cmp(state, _DH));
     return state;
 };
 
@@ -148,28 +204,42 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_BASE] = LAYOUT_split_3x5_3(
 
-  /* Layer 0: Base keys
+/* Layer 0: Base keys
  *
  * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
- * |  Q/ESC  |    W    |    E    |    R    |    T    |                      |    Y    |    U    |    I    |    O    |  P/DEL  |
+ * |    Q    |    W    |    E    |    R    |    T    |                      |    Y    |    U    |    I    |    O    |    P    |
  * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
- * |  A/TAB  |    S    |    D    |    F    |    G    |                      |    H    |    J    |    K    |    L    |   ' "   |
+ * |    A    |  CTRL/S |  GUI/D  |  ALT/F  |    G    |                      |    H    |  ALT/J  |  GUI/K  | CTRL/L  |   DEL   |
  * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
  * |  SHF/Z  |    X    |    C    |    V    |    B    |                      |    N    |    M    |   < ,   |   > .   | SHF/ /? |
  * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
  *                                .--------.--------.--------.      .--------.--------.--------.
- *                                |  _NUM  |  _SPEC |  _NAV  |      |ENT/CTRL|SPC/WIN |ALT/BSP |
+ *                                |  _NUM |_SPEC/TAB|_NAV/ESC|      |   ENT  |  SPC   |   BSP  |
  *                                .--------.--------.--------.      .--------.--------.--------.
  */
 
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-        TD(TD_Q_ESC),           KC_W,              KC_E,               KC_R,            KC_T,                   TT(_NAV),                              RCTL_T(KC_ENT),            KC_Y,             KC_U,              KC_I,              KC_O,             TD(TD_P_DEL),
+        KC_Q,                   KC_W,              KC_E,               KC_R,            KC_T,               LT(_NAV, KC_ESC),                             KC_ENT,                 KC_Y,             KC_U,              KC_I,              KC_O,                  KC_P,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-        TD(TD_A_TAB),           KC_S,              KC_D,               KC_F,            KC_G,                   TT(_SPEC),                             RGUI_T(KC_SPC),            KC_H,             KC_J,              KC_K,              KC_L,               KC_QUOT,
+        KC_A,               LCTL_T(KC_S),       LGUI_T(KC_D),       LALT_T(KC_F),       KC_G,               LT(_SPEC, KC_TAB),                            KC_SPC,                 KC_H,           RALT_T(KC_J),      RGUI_T(KC_K),       RCTL_T(KC_L),           KC_DEL,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-        LSFT_T(KC_Z),           KC_X,              KC_C,               KC_V,            KC_B,                   TT(_NUM),                              RALT_T(KC_BSPC),           KC_N,             KC_M,              KC_COMM,           KC_DOT,           RSFT_T(KC_SLSH)
+        LSFT_T(KC_Z),           KC_X,              KC_C,               KC_V,            KC_B,                   TT(_NUM),                                 KC_BSPC,                KC_N,             KC_M,              KC_COMM,           KC_DOT,           RSFT_T(KC_SLSH)
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
   ),
+
+/* Layer 1: Numbers and Function keys
+ *
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |    F1   |    F2   |    F3   |    F4   |    F5   |                      |    *    |    8    |    8    |    O    |    -    |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |    F6   |    F7   |    F8   |    F9   |    F10  |                      |    /    |    5    |    5    |    6    |    +    |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |    F11  |    F12  |  _NUM   |    xxx  |    xxx  |                      |    0    |    2    |    2    |    3    |    .    |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ *                                |  _NUM |_SPEC/TAB|_NAV/ESC|      |   ENT  |  SPC   |   BSP  |
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ */
 
   [_NUM] = LAYOUT_split_3x5_3(
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
@@ -177,31 +247,79 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
             KC_F6,               KC_F7,             KC_F8,             KC_F9,            KC_F10,                _______,                                  _______,            KC_KP_SLASH,            KC_4,              KC_5,             KC_6,              KC_KP_PLUS,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            KC_F11,              KC_F12,          XXXXXXX,            XXXXXXX,           XXXXXXX,               _______,                                  _______,                KC_0,               KC_1,              KC_2,             KC_3,              KC_DOT
+            KC_F11,              KC_F12,          TG(_NUM),            XXXXXXX,          XXXXXXX,               _______,                                  _______,                KC_0,               KC_1,              KC_2,             KC_3,              KC_DOT
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
   ),
 
-  [_SPEC] = LAYOUT_split_3x5_3(
+/* Layer 2: Special characters and symbols
+ *
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |    !    |    @    |    #    |    $    |    %    |                      |    &    |    &    |    *    |    (    |    )    |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |   ~ `   |   xxx   |   INS   |   xxx   |   xxx   |                      |   { [   |   } ]   |   | \   |   : ;   |   " '   |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |   SHF   |   xxx   |  _SPEC  |   xxx   |   xxx   |                      |   _ -   |   + =    |   < ,  |   > .   | SHF/ /? |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ *                                |  _NUM |_SPEC/TAB|_NAV/ESC|      |   ENT  |  SPC   |   BSP  |
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ */
+
+ [_SPEC] = LAYOUT_split_3x5_3(
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            KC_EXLM,           KC_AT,              KC_HASH,           KC_DLR,              KC_PERC,              _______,                                  _______,              KC_CIRC,           KC_AMPR,             KC_ASTR,           KC_LPRN,            KC_RPRN,
+            KC_EXLM,           KC_AT,              KC_HASH,           KC_DLR,              KC_PERC,             TG(_SPEC),                                 _______,              KC_CIRC,           KC_AMPR,             KC_ASTR,           KC_LPRN,            KC_RPRN,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            KC_GRAVE,          XXXXXXX,            XXXXXXX,           XXXXXXX,             XXXXXXX,              _______,                                  _______,              KC_LBRC,           KC_RBRC,             KC_BSLS,           KC_SCLN,            _______,
+            KC_GRAVE,          XXXXXXX,             KC_INS,           XXXXXXX,             XXXXXXX,              _______,                                  _______,              KC_LBRC,           KC_RBRC,             KC_BSLS,           KC_SCLN,            KC_QUOT,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            _______,           KC_CAPS,            KC_INS,            XXXXXXX,             XXXXXXX,              _______,                                  _______,              KC_MINS,           KC_EQL,              _______,           _______,            _______
+            _______,           KC_CAPS,           TG(_SPEC),          XXXXXXX,             XXXXXXX,              _______,                                  _______,              KC_MINS,           KC_EQL,              _______,           _______,            _______
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
   ),
 
-  [_NAV] = LAYOUT_split_3x5_3(
-  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-         KC_ESCAPE,           XXXXXXX,         TD(TD_SHFT_UP),        KC_PGUP,            XXXXXXX,              _______,                                  _______,              XXXXXXX,           XXXXXXX,             XXXXXXX,           XXXXXXX,            XXXXXXX,
-  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-      TD(TD_SHFT_HOME),     TD(TD_SHFT_L),        XXXXXXX,         TD(TD_SHFT_R),     TD(TD_SHFT_END),          _______,                                  _______,              XXXXXXX,           XXXXXXX,             XXXXXXX,           XXXXXXX,            XXXXXXX,
-  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-        _______,              XXXXXXX,         TD(TD_SHFT_DOWN),      KC_PGDOWN,          XXXXXXX,              _______,                                  _______,              XXXXXXX,           XXXXXXX,             XXXXXXX,           XXXXXXX,            _______
-  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-  )
+/* Layer 3: Navigation keys
+ *
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |   xxx   |   xxx   |   xxx   |   xxx   |   xxx   |                      |   Home  |  PgUp   |Ctrl+Left|Ctrl+Right|  xxx   |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |   xxx   |   xxx   |   xxx   |   xxx   |   xxx   |                      |  Left   |  Down   |    Up   |  Right  | Ctrl+W  |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |   SHF   |   xxx   |   _NAV  |   xxx   |   xxx   |                      |   xxx   |  PgDn   | Ctrl+^  | Ctrl+]  |   End   |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ *                                |  _NUM |_SPEC/TAB|_NAV/ESC|      |   ENT  |  SPC   |   BSP  |
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ */
 
+ [_NAV] = LAYOUT_split_3x5_3(
+  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+         XXXXXXX,             XXXXXXX,            XXXXXXX,            XXXXXXX,            XXXXXXX,              _______,                                  _______,              KC_HOME,           KC_PGUP,         LCTL(KC_LEFT),       LCTL(KC_RGHT),        XXXXXXX,
+  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+         XXXXXXX,             XXXXXXX,            XXXXXXX,            XXXXXXX,            XXXXXXX,              _______,                                  _______,              KC_LEFT,           KC_DOWN,               KC_UP,          KC_RIGHT,          LCTL(KC_W),
+  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+        _______,              XXXXXXX,           TG(_NAV),            XXXXXXX,            XXXXXXX,              _______,                                  _______,              XXXXXXX,           KC_PGDN,          LCTL(KC_6),         LCTL(KC_RBRC),         KC_END
+  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+  ),
+
+/* Layer 4: Colemak-DH (alternate base)
+ *
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |    Q    |    W    |    F    |    P    |    B    |                      |    J    |    L    |    U    |    Y    |    P    |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * |    A    |  R/CTL  |  S/GUI  |  T/ALT  |    G    |                      |    H    |  N/ALT  |  E/GUI  |  I/CTL  |    O    |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ * | SHF/Z   |    X    |    C    |    D    |    V    |                      |    K    |    M    |    ,    |    .    | SHF/ /? |
+ * ,---------.---------.---------.---------.---------.                      ,---------.---------.---------.---------.---------.
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ *                                | _NUM  |_SPEC/TAB|_NAV/ESC|      |   ENT  |  SPC   |   BSP  |
+ *                                .--------.--------.--------.      .--------.--------.--------.
+ */
+
+ [_DH] = LAYOUT_split_3x5_3(
+ //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+          KC_Q,               KC_W,               KC_F,                KC_P,               KC_B,           LT(_NAV, KC_ESC),                             KC_ENT,                  KC_J,               KC_L,              KC_U,               KC_Y,               KC_P,
+ //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+          KC_A,            LCTL_T(KC_R),       LGUI_T(KC_S),        LALT_T(KC_T),          KC_G,           LT(_SPEC, KC_TAB),                            KC_SPC,                  KC_H,          RALT_T(KC_N),       RGUI_T(KC_E),       RCTL_T(KC_I),           KC_O,
+ //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+          LSFT_T(KC_Z),       KC_X,               KC_C,                KC_D,                KC_V,              TT(_NUM),                                 KC_BSPC,                 KC_K,               KC_M,              KC_COMM,            KC_DOT,       RSFT_T(KC_SLSH)
+ //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
+    )
 };
-
-
-
