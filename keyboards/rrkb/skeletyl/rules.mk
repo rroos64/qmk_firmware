@@ -14,10 +14,7 @@ TAP_DANCE_ENABLE = yes
 COMBO_ENABLE = yes		# Combo keys
 #AUTO_SHIFT_ENABLE = yes
 
-#define PDF_HOLD_MS 350
-#define PDF_HOLD_MS 350
 # Debug settigs
-#
 #DEBUG_ENABLE= yes
 #DEBUG_ACTION = yes
 #debug_matrix = true
@@ -33,9 +30,6 @@ BACKLIGHT_ENABLE = no       # Enable keyboard backlight functionality
 RGB_MATRIX_ENABLE = no      # Enable keyboard RGB matrix (do not use together with RGBLIGHT_ENABLE)
 RGBLIGHT_ENABLE = yes        # Enable keyboard RGB underglow
 RGB_MATRIX_DRIVER = WS2812  # RGB matrix driver support
-RGB_DI_PIN = B6
-RGBLED_NUM = 8
-RGBLED_SPLIT = 4
 RGBLIGHT_DEFAULT_VAL = 50
 
 AUDIO_ENABLE = no           # Audio output
