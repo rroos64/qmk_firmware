@@ -11,7 +11,7 @@ BOOTLOADER = caterina
 BOOTMAGIC_ENABLE = no     # Virtual DIP switch configuration
 MOUSEKEY_ENABLE = no       # Mouse keys
 EXTRAKEY_ENABLE = no       # Audio control and System control
-TAP_DANCE_ENABLE = yes
+TAP_DANCE_ENABLE = no
 COMBO_ENABLE = yes		# Combo keys
 #AUTO_SHIFT_ENABLE = yes
 
