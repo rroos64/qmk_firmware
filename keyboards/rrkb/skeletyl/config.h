@@ -22,29 +22,63 @@
 
 #pragma once
 #include "config_common.h"
-#define VENDOR_ID 0xA8F8
+
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* USB Device Identification                                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+#define VENDOR_ID  0xA8F8
 #define PRODUCT_ID 0x1830
 #define DEVICE_VER 0x0001
 #define MANUFACTURER Bastard Keyboards
-#define PRODUCT Skeletyl
+#define PRODUCT      Skeletyl
+
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Matrix Size & Pinout                                                      */
+/* ────────────────────────────────────────────────────────────────────────── */
 
 #define MATRIX_ROWS 6
 #define MATRIX_COLS 6
-#define RGBLIGHT_LIMIT_VAL 180
+
 #define MATRIX_ROW_PINS { F7, B1, B3 }
 #define MATRIX_COL_PINS { B5, B4, E6, D7, C6, B2 }
 
-#define DIODE_DIRECTION COL2ROW //Left side works with this setting
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Diodes                                                                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+#define DIODE_DIRECTION COL2ROW // Left side works with this setting
 // #define DIODE_DIRECTION ROW2COL
+
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* RGB Underglow (RGBLIGHT)                                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
 
 #define RGB_DI_PIN B6
 #define RGBLED_NUM 8
 #define RGBLED_SPLIT { 4, 4 }
+
 #define RGBLIGHT_ANIMATIONS
 #define RGBLIGHT_LAYERS
+#define RGBLIGHT_LIMIT_VAL 180
+
 #define WS2812_BYTE_ORDER WS2812_BYTE_ORDER_RGB
 
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Debounce                                                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+
 #define DEBOUNCE 5
+
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Split Transport / Serial                                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
 
 //#define USE_I2C
 #define SOFT_SERIAL_PIN D1
@@ -52,21 +86,34 @@
 #define SELECT_SOFT_SERIAL_SPEED 0
 //#define SERIAL_USE_MULTI_TRANSACTION
 
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* USB / Split Detection / Handedness                                        */
+/* ────────────────────────────────────────────────────────────────────────── */
+
 //#define USB_POLLING_INTERVAL_MS 1
-//define SPLIT_USB_DETECT
+//define SPLIT_USB_DETECT            // (kept as original comment; note missing '#')
+
 // #define SPLIT_HAND_PIN D4
 #define SPLIT_HAND_PIN_LOW_IS_LEFT   // <— invert: LOW = left, HIGH = right
 // #define MASTER_LEFT
 // #define MASTER_RIGHT
 #define EE_HANDS
+
 #define SPLIT_CONNECTION_CHECK_TIMEOUT 500
 //#define SPLIT_MAX_CONNECTION_ERRORS 10
 //#define FORCED_SYNC_THROTTLE_MS 100
 
 //#define DEBUG_MATRIX_SCAN_RATE
 
-#define ONESHOT_TAP_TOGGLE 1  /* Tapping this number of times holds the key until tapped once again. */
-#define ONESHOT_TIMEOUT 500  /* Time (in ms) before the one shot key is released */
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* One-shot / Tapping Configuration                                          */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+#define ONESHOT_TAP_TOGGLE 1   /* Tapping this number of times holds the key until tapped once again. */
+#define ONESHOT_TIMEOUT    500 /* Time (in ms) before the one shot key is released */
+
 #define TAPPING_TERM 190
 #define TAPPING_TOGGLE 1
 #define TAPPING_TERM_PER_KEY
@@ -76,23 +123,40 @@
 // #define HOLD_ON_OTHER_KEY_PRESS
 #define IGNORE_MOD_TAP_INTERRUPT
 
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Combos                                                                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
 // Let combos see LT() and other action keys
 #define COMBO_ALLOW_ACTION_KEYS
+
 // Per-combo tuning hooks (so we can make this combo “hold-only”)
 #define COMBO_TERM_PER_COMBO
+
 // Combos (for both-thumbs PDF)
 #define COMBO_TERM 50
+
 // How long both thumbs must be held to trigger PDF swap (ms)
 #define PDF_HOLD_MS 350
+
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Auto Shift / Tapping Force Hold (kept as comments)                        */
+/* ────────────────────────────────────────────────────────────────────────── */
 
 //#define AUTO_SHIFT_TIMEOUT 200
 //#define NO_AUTO_SHIFT_SPECIAL
 //#define TAPPING_FORCE_HOLD
 
-// RGB matrix support
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* RGB Matrix (disabled here; kept for reference if enabled via rules.mk)    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
 #ifdef RGB_MATRIX_ENABLE
 #    define SPLIT_TRANSPORT_MIRROR
-#    define DRIVER_LED_TOTAL 36 // Number of LEDs
+#    define DRIVER_LED_TOTAL 36              // Number of LEDs
 #    define RGB_MATRIX_SPLIT { 18, 18 }
 #    define RGB_MATRIX_MAXIMUM_BRIGHTNESS 50
 #    define RGB_MATRIX_STARTUP_VAL RGB_MATRIX_MAXIMUM_BRIGHTNESS
