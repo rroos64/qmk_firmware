@@ -1,4 +1,5 @@
 # MCU name
+# Arduino Pro Micro with the Caterina bootloader
 MCU = atmega32u4
 
 # Bootloader selection
@@ -8,8 +9,8 @@ BOOTLOADER = caterina
 #   change yes to no to disable
 #
 BOOTMAGIC_ENABLE = no     # Virtual DIP switch configuration
-MOUSEKEY_ENABLE = yes       # Mouse keys
-EXTRAKEY_ENABLE = yes       # Audio control and System control
+MOUSEKEY_ENABLE = no       # Mouse keys
+EXTRAKEY_ENABLE = no       # Audio control and System control
 TAP_DANCE_ENABLE = yes
 COMBO_ENABLE = yes		# Combo keys
 #AUTO_SHIFT_ENABLE = yes
@@ -35,7 +36,7 @@ RGBLIGHT_DEFAULT_VAL = 50
 AUDIO_ENABLE = no           # Audio output
 SPLIT_KEYBOARD = yes
 LTO_ENABLE = yes
-VIA_ENABLE = yes
+VIA_ENABLE = no
 
 AUDIO_SUPPORTED = no
 RGB_MATRIX_SUPPORTED = no

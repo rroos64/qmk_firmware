@@ -26,27 +26,14 @@
 
 // Tap Dance declarations
 enum {
-    TD_Q_ESC,
     TD_ENT_SHFTENT,
     TD_BSP_CTRLBS,
-    TD_CTRL_A,
-    TD_CTRL_S,
-    TD_CTRL_Z,
-    TD_CTR_X,
-    TD_CTRL_C,
-    TD_CTRL_V,
-    TD_CTRL_Y,
-    TD_A_TAB,
-    TD_NAV,
-    TD_BASE,
     TD_SHFT_UP,
     TD_SHFT_DOWN,
     TD_SHFT_R,
     TD_SHFT_L,
     TD_SHFT_HOME,
-    TD_SHFT_END,
-    TD_P_DEL,
-    TD_SHFT_CAPS
+    TD_SHFT_END
 };
 
 // --- Custom keycode to toggle default layer persistently (QW <-> DH)
@@ -55,6 +42,14 @@ enum custom_keycodes {
   PDF_DH,               // set default to _DH
   PDF_TOG,              // toggle default between _BASE and _DH
 };
+
+// --- Latch/unlatch logic for the two left-thumb LT() keys ---
+static uint8_t lt_left_layer = 0;
+static bool    lt_left_held  = false;
+static bool    lt_latched    = false;
+
+#define LT_LEFT_OUTER LT(_NAV, KC_ESC)
+#define LT_LEFT_INNER LT(_SPEC, KC_TAB)
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
@@ -74,8 +69,50 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 return false;
         }
     }
+
+    // Track when a left-thumb LT() is held
+    if (keycode == LT_LEFT_OUTER || keycode == LT_LEFT_INNER) {
+        if (record->event.pressed) {
+            lt_left_held  = true;
+            lt_left_layer = (keycode == LT_LEFT_OUTER) ? _NAV : _SPEC;
+        } else {
+            lt_left_held  = false;
+            // if latched, we keep the layer on; if not latched, LT() releases it for us
+        }
+        return true; // don't block LT's normal tap/hold behavior (Esc/Tab taps remain)
+    }
+
+    // C toggles latch if a left-thumb layer is being (or was) held
+    if (keycode == KC_C && record->event.pressed) {
+        if (lt_left_held && !lt_latched) {
+            layer_on(lt_left_layer);
+            lt_latched = true;
+            return false; // swallow 'c' when latching (delete if you want it to type 'c')
+        } else if (lt_latched) {
+            layer_off(lt_left_layer);
+            lt_latched = false;
+            return false; // swallow 'c' on unlatch
+        }
+    }
+
     return true;
 };
+
+// Identify your home-row MTs (adjust to match your keymap)
+static inline bool is_hrm(uint16_t kc) {
+    switch (kc) {
+        case LCTL_T(KC_S):
+        case LGUI_T(KC_D):
+        case LALT_T(KC_F):
+        case LSFT_T(KC_G):
+        case RSFT_T(KC_H):
+        case RALT_T(KC_J):
+        case RGUI_T(KC_K):
+        case RCTL_T(KC_L):
+            return true;
+    }
+    return false;
+}
 
 // --- Combos
 enum combo_events {
@@ -117,28 +154,36 @@ void dance_ons_shft_caps(qk_tap_dance_state_t *state, void *user_data) {
 // Tap Dance definitions
 qk_tap_dance_action_t tap_dance_actions[] = {
     // Tap once for Escape, twice for Caps Lock
-    [TD_Q_ESC] = ACTION_TAP_DANCE_DOUBLE(KC_Q, KC_ESCAPE),
     [TD_ENT_SHFTENT] = ACTION_TAP_DANCE_DOUBLE(KC_ENT, LSFT(KC_ENT)),
     [TD_BSP_CTRLBS] = ACTION_TAP_DANCE_DOUBLE(KC_BSPACE, LCTL(KC_BSPACE)),
-    [TD_CTRL_A] = ACTION_TAP_DANCE_DOUBLE(KC_A, LCTL(KC_A)),
-    [TD_CTRL_S] = ACTION_TAP_DANCE_DOUBLE(KC_S, LCTL(KC_S)),
-    [TD_CTRL_Z] = ACTION_TAP_DANCE_DOUBLE(KC_Z, LCTL(KC_Z)),
-    [TD_CTR_X] = ACTION_TAP_DANCE_DOUBLE(KC_X, LCTL(KC_X)),
-    [TD_CTRL_C] = ACTION_TAP_DANCE_DOUBLE(KC_C, LCTL(KC_C)),
-    [TD_CTRL_V] = ACTION_TAP_DANCE_DOUBLE(KC_V, LCTL(KC_V)),
-    [TD_CTRL_Y] = ACTION_TAP_DANCE_DOUBLE(KC_Y, LCTL(KC_Y)),
-    [TD_A_TAB] = ACTION_TAP_DANCE_DOUBLE(KC_A, KC_TAB),
-    [TD_NAV] = ACTION_TAP_DANCE_LAYER_MOVE(KC_N, _NAV),
-    [TD_BASE] = ACTION_TAP_DANCE_LAYER_MOVE(XXXXXXX, _BASE),
     [TD_SHFT_UP] = ACTION_TAP_DANCE_DOUBLE(KC_UP, LSFT(KC_UP)),
     [TD_SHFT_DOWN] = ACTION_TAP_DANCE_DOUBLE(KC_DOWN, LSFT(KC_DOWN)),
     [TD_SHFT_R] = ACTION_TAP_DANCE_DOUBLE(KC_RIGHT, LSFT(KC_RIGHT)),
     [TD_SHFT_L] = ACTION_TAP_DANCE_DOUBLE(KC_LEFT, LSFT(KC_LEFT)),
     [TD_SHFT_HOME] = ACTION_TAP_DANCE_DOUBLE(KC_HOME, LSFT(KC_HOME)),
-    [TD_SHFT_END] = ACTION_TAP_DANCE_DOUBLE(KC_END, LSFT(KC_END)),
-    [TD_P_DEL]      = ACTION_TAP_DANCE_DOUBLE(KC_P, KC_DEL),
-    [TD_SHFT_CAPS]  = ACTION_TAP_DANCE_FN_ADVANCED(NULL, dance_ons_shft_caps, NULL),
+    [TD_SHFT_END] = ACTION_TAP_DANCE_DOUBLE(KC_END, LSFT(KC_END))
 };
+
+// 1) Slightly longer tap window for HRMs so quick taps register reliably
+uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+    if (is_hrm(keycode)) return 220;   // try 210–240ms
+    switch (keycode) {
+        case LT_LEFT_OUTER:
+        case LT_LEFT_INNER:
+            return 170; // a bit shorter than global TAPPING_TERM
+    };
+    return TAPPING_TERM;
+}
+
+// 2) Don’t let “pressing another key” convert an HRM tap into a hold
+bool get_ignore_mod_tap_interrupt(uint16_t keycode, keyrecord_t *record) {
+    return is_hrm(keycode);            // favor TAP on rolls
+}
+
+// 3) Don’t force HRMs to become holds just because another key was pressed
+bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
+    return false;                      // or: return !is_hrm(keycode);
+}
 
 // Light LEDs 4 and 8 red when caps lock is active. Hard to ignore!
 const rgblight_segment_t PROGMEM my_capslock_layer[] = RGBLIGHT_LAYER_SEGMENTS(
@@ -223,7 +268,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
         KC_A,               LCTL_T(KC_S),       LGUI_T(KC_D),       LALT_T(KC_F),       KC_G,               LT(_SPEC, KC_TAB),                            KC_SPC,                 KC_H,           RALT_T(KC_J),      RGUI_T(KC_K),       RCTL_T(KC_L),           KC_DEL,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-        LSFT_T(KC_Z),           KC_X,              KC_C,               KC_V,            KC_B,                   TT(_NUM),                                 KC_BSPC,                KC_N,             KC_M,              KC_COMM,           KC_DOT,           RSFT_T(KC_SLSH)
+        LSFT_T(KC_Z),           KC_X,              KC_C,               KC_V,            KC_B,                   MO(_NUM),                                 KC_BSPC,                KC_N,             KC_M,              KC_COMM,           KC_DOT,           RSFT_T(KC_SLSH)
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
   ),
 
@@ -247,7 +292,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
             KC_F6,               KC_F7,             KC_F8,             KC_F9,            KC_F10,                _______,                                  _______,            KC_KP_SLASH,            KC_4,              KC_5,             KC_6,              KC_KP_PLUS,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            KC_F11,              KC_F12,          TG(_NUM),            XXXXXXX,          XXXXXXX,               _______,                                  _______,                KC_0,               KC_1,              KC_2,             KC_3,              KC_DOT
+            KC_F11,              KC_F12,          TG(_NUM),            XXXXXXX,          XXXXXXX,               XXXXXXX,                                  _______,                KC_0,               KC_1,              KC_2,             KC_3,              KC_DOT
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
   ),
 
@@ -267,9 +312,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
  [_SPEC] = LAYOUT_split_3x5_3(
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            KC_EXLM,           KC_AT,              KC_HASH,           KC_DLR,              KC_PERC,             TG(_SPEC),                                 _______,              KC_CIRC,           KC_AMPR,             KC_ASTR,           KC_LPRN,            KC_RPRN,
+            KC_EXLM,           KC_AT,              KC_HASH,           KC_DLR,              KC_PERC,              _______,                                 _______,              KC_CIRC,           KC_AMPR,             KC_ASTR,           KC_LPRN,            KC_RPRN,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-            KC_GRAVE,          XXXXXXX,             KC_INS,           XXXXXXX,             XXXXXXX,              _______,                                  _______,              KC_LBRC,           KC_RBRC,             KC_BSLS,           KC_SCLN,            KC_QUOT,
+            KC_GRAVE,          XXXXXXX,             KC_INS,           XXXXXXX,             XXXXXXX,              XXXXXXX,                                  _______,              KC_LBRC,           KC_RBRC,             KC_BSLS,           KC_SCLN,            KC_QUOT,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
             _______,           KC_CAPS,           TG(_SPEC),          XXXXXXX,             XXXXXXX,              _______,                                  _______,              KC_MINS,           KC_EQL,              _______,           _______,            _______
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
@@ -291,7 +336,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
  [_NAV] = LAYOUT_split_3x5_3(
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-         XXXXXXX,             XXXXXXX,            XXXXXXX,            XXXXXXX,            XXXXXXX,              _______,                                  _______,              KC_HOME,           KC_PGUP,         LCTL(KC_LEFT),       LCTL(KC_RGHT),        XXXXXXX,
+         XXXXXXX,             XXXXXXX,            XXXXXXX,            XXXXXXX,            XXXXXXX,              XXXXXXX,                                  _______,              KC_HOME,           KC_PGUP,         LCTL(KC_LEFT),       LCTL(KC_RGHT),        XXXXXXX,
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
          XXXXXXX,             XXXXXXX,            XXXXXXX,            XXXXXXX,            XXXXXXX,              _______,                                  _______,              KC_LEFT,           KC_DOWN,               KC_UP,          KC_RIGHT,          LCTL(KC_W),
   //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
@@ -319,7 +364,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
           KC_A,            LCTL_T(KC_R),       LGUI_T(KC_S),        LALT_T(KC_T),          KC_G,           LT(_SPEC, KC_TAB),                            KC_SPC,                  KC_H,          RALT_T(KC_N),       RGUI_T(KC_E),       RCTL_T(KC_I),           KC_O,
  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
-          LSFT_T(KC_Z),       KC_X,               KC_C,                KC_D,                KC_V,              TT(_NUM),                                 KC_BSPC,                 KC_K,               KC_M,              KC_COMM,            KC_DOT,       RSFT_T(KC_SLSH)
+          LSFT_T(KC_Z),       KC_X,               KC_C,                KC_D,                KC_V,              MO(_NUM),                                 KC_BSPC,                 KC_K,               KC_M,              KC_COMM,            KC_DOT,       RSFT_T(KC_SLSH)
  //|-------------------+-------------------+------------------+-------------------+-------------------+  +-------------------|                    |-------------------+  +-------------------+------------------+-------------------+-------------------+-------------------|
     )
 };

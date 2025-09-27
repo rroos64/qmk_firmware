@@ -54,11 +54,11 @@
 
 //#define USB_POLLING_INTERVAL_MS 1
 //define SPLIT_USB_DETECT
-#define SPLIT_HAND_PIN D4
-// #define SPLIT_HAND_PIN_LOW_IS_LEFT   // <— invert: LOW = left, HIGH = right
-#define MASTER_LEFT
+// #define SPLIT_HAND_PIN D4
+#define SPLIT_HAND_PIN_LOW_IS_LEFT   // <— invert: LOW = left, HIGH = right
+// #define MASTER_LEFT
 // #define MASTER_RIGHT
-//#define EE_HANDS
+#define EE_HANDS
 #define SPLIT_CONNECTION_CHECK_TIMEOUT 500
 //#define SPLIT_MAX_CONNECTION_ERRORS 10
 //#define FORCED_SYNC_THROTTLE_MS 100
@@ -69,9 +69,11 @@
 #define ONESHOT_TIMEOUT 500  /* Time (in ms) before the one shot key is released */
 #define TAPPING_TERM 200
 #define TAPPING_TOGGLE 1
+#define TAPPING_TERM_PER_KEY
+#define QUICK_TAP_TERM 70
 
-#define PERMISSIVE_HOLD
-#define HOLD_ON_OTHER_KEY_PRESS
+// #define PERMISSIVE_HOLD
+// #define HOLD_ON_OTHER_KEY_PRESS
 #define IGNORE_MOD_TAP_INTERRUPT
 
 // Let combos see LT() and other action keys
