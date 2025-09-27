@@ -208,20 +208,37 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 // Combo: outer thumb + Enter → toggle default layer
 // ─────────────────────────────────────────────────────────────────────────────
 #ifdef COMBO_ENABLE
-enum combo_events { CB_PDF_TOG };
+// Two combos:
+//  • CB_PDF_TOG  = THUMB_OUTER + Enter  → toggle default layer (QW↔DH)
+//  • CB_BOOT     = THUMB_OUTER + THUMB_MIDDLE + THUMB_INNER → jump to bootloader
+
+enum combo_events { CB_PDF_TOG, CB_BOOT };
+
 const uint16_t PROGMEM combo_pdf_tog[] = { THUMB_OUTER, KC_ENT, COMBO_END };
-combo_t key_combos[] = { [CB_PDF_TOG] = COMBO_ACTION(combo_pdf_tog), };
-__attribute__((used)) uint16_t COMBO_LEN = (uint16_t)(sizeof(key_combos) / sizeof(key_combos[0]));
-#ifndef COMBO_LEN
-#    define COMBO_LEN (sizeof(key_combos) / sizeof(key_combos[0]))
-#endif
+const uint16_t PROGMEM combo_boot[]    = { THUMB_OUTER, THUMB_MIDDLE, THUMB_INNER, COMBO_END };
+
+combo_t key_combos[] = {
+    [CB_PDF_TOG] = COMBO_ACTION(combo_pdf_tog),
+    [CB_BOOT]    = COMBO_ACTION(combo_boot),
+};
+
+// Strong symbol so combos link on all QMK branches (avoid LTO drop)
+__attribute__((used)) const uint16_t COMBO_LEN =
+    (uint16_t)(sizeof(key_combos) / sizeof(key_combos[0]));
+
 void process_combo_event(uint16_t combo_index, bool pressed) {
-    if (combo_index == CB_PDF_TOG && pressed) {
-        if (layer_state_cmp(default_layer_state, _DH)) {
-            set_single_persistent_default_layer(_BASE);
-        } else {
-            set_single_persistent_default_layer(_DH);
-        }
+    if (!pressed) return; // act on press only
+    switch (combo_index) {
+        case CB_PDF_TOG:
+            if (layer_state_cmp(default_layer_state, _DH)) {
+                set_single_persistent_default_layer(_BASE);
+            } else {
+                set_single_persistent_default_layer(_DH);
+            }
+            break;
+        case CB_BOOT:
+            reset_keyboard(); // soft bootloader entry
+            break;
     }
 }
 #endif
