@@ -67,7 +67,7 @@
 
 #define ONESHOT_TAP_TOGGLE 1  /* Tapping this number of times holds the key until tapped once again. */
 #define ONESHOT_TIMEOUT 500  /* Time (in ms) before the one shot key is released */
-#define TAPPING_TERM 200
+#define TAPPING_TERM 190
 #define TAPPING_TOGGLE 1
 #define TAPPING_TERM_PER_KEY
 #define QUICK_TAP_TERM 70

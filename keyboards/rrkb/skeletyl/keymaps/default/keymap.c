@@ -304,8 +304,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 // Mod‑Tap tuning — fewer HRM misfires, snappier thumbs
 // ─────────────────────────────────────────────────────────────────────────────
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
-    if (is_hrm(keycode)) return 215;                              // HRMs
-    if (keycode == THUMB_OUTER || keycode == THUMB_MIDDLE) return 160; // Esc/Tab LTs
+    if (is_hrm(keycode)) return 205;                              // HRMs
+    if (keycode == THUMB_OUTER || keycode == THUMB_MIDDLE) return 150; // Esc/Tab LTs
     return TAPPING_TERM;
 }
 
@@ -319,7 +319,7 @@ bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
 
 #ifdef QUICK_TAP_TERM
 uint16_t get_quick_tap_term(uint16_t keycode, keyrecord_t *record) {
-    if (is_hrm(keycode)) return 90; // helps double letters like "ll" / "ee"
+    if (is_hrm(keycode)) return 80; // helps double letters like "ll" / "ee"
     return QUICK_TAP_TERM;
 }
 #endif
