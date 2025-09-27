@@ -1,34 +1,27 @@
 
 // SPDX-License-Identifier: GPL-2.0-or-later
-// RRKB Skeletyl — cleaned keymap with:
-//  - Left thumbs: LT(NAV,Esc) / LT(SPEC,Tab) / MO(NUM)
+// RRKB Skeletyl — clean keymap
+//  - Thumbs (left cluster order): inner=NUM, middle=SPEC/Tab, outer=NAV/Esc
 //  - Hold = momentary; while holding press C = latch; press C again = unlatch
-//  - Persistent default layer switchers: PDF_QW / PDF_DH / PDF_TOG
-//  - Home‑row mod‑taps tuned to reduce misfires ("se" etc.)
-//  - No layer self‑toggles (TG on layers removed)
-//  - No Tap Dance here (set TAP_DANCE_ENABLE = no in rules.mk to save space)
-//  - Optional: one combo (outer‑thumb + Enter => PDF_TOG) if COMBO_ENABLE=yes
+//  - PDF_QW / PDF_DH / PDF_TOG (persistent default layer control)
+//  - Home‑row Mod‑Taps tuned for fewer misfires
+//  - Lightweight RGB: Caps magenta, NUM red, SPEC green, NAV blue, soft DH hint
+//  - No TG() landmines on layers; Tap Dance optional (stub if enabled)
 
-#include QMK_KEYBOARD_H   // pulls in core QMK headers incl. action_tapping, rgblight, etc.
-#include "skeletyl.h"     // keyboard layout header (LAYOUT_split_3x5_3)
+#include QMK_KEYBOARD_H
+#include "skeletyl.h"
 #ifdef COMBO_ENABLE
 #    include "process_combo.h"
 #endif
 #ifdef TAP_DANCE_ENABLE
 #    include "process_tap_dance.h"
-// We aren't using Tap Dance actions, but if the feature is enabled in rules.mk
-// we must still provide the symbol to satisfy the linker.
-qk_tap_dance_action_t tap_dance_actions[] = {};
 #endif
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Layers
+// Layers & custom keycodes
 // ─────────────────────────────────────────────────────────────────────────────
-enum layers { _BASE, _NUM, _SPEC, _NAV, _DH };
+enum layers { _BASE, _DH, _NUM, _SPEC, _NAV };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Custom keycodes (persistent default layer control)
-// ─────────────────────────────────────────────────────────────────────────────
 enum custom_keycodes {
     PDF_QW = SAFE_RANGE,
     PDF_DH,
@@ -36,9 +29,7 @@ enum custom_keycodes {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Home‑row Mod‑taps helper (adjust to match your actual HRMs)
-// Left:  S(Dual=Ctrl), D(=GUI), F(=Alt), G(=Shift)
-// Right: H(=Shift),   J(=Alt), K(=GUI), L(=Ctrl)
+// Home‑row Mod‑taps helper (adjust if your HRMs differ)
 // ─────────────────────────────────────────────────────────────────────────────
 static inline bool is_hrm(uint16_t kc) {
     switch (kc) {
@@ -56,22 +47,38 @@ static inline bool is_hrm(uint16_t kc) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Thumb‑latch state (for LT(_NAV,Esc), LT(_SPEC,Tab), MO(_NUM))
+// Thumb aliases (inner/middle/outer = NUM/SPEC/NAV)
 // ─────────────────────────────────────────────────────────────────────────────
-static uint8_t lt_left_layer = 0;  // remembered layer to latch (NAV/SPEC/NUM)
-static bool    lt_left_held  = false;
-static bool    lt_latched    = false;
-
-// Convenience aliases — RIGHT/LEFT thumb cluster mapping (inner/middle/outer)
-// As requested: inner = _NUM, middle = _SPEC/Tab, outer = _NAV/Esc
 #define THUMB_OUTER  LT(_NAV,  KC_ESC)
 #define THUMB_MIDDLE LT(_SPEC, KC_TAB)
 #define THUMB_INNER  MO(_NUM)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Keymaps (LAYOUT_split_3x5_3)
-// NOTE: This is a clean, conservative QWERTY + Colemak-DH example. Replace any
-// positions to suit your exact board, but keep the three left thumbs as below.
+// Latch state (compact helpers to avoid big if‑chains)
+// ─────────────────────────────────────────────────────────────────────────────
+static int8_t latched_layer = -1; // -1 none, else one of _NAV/_SPEC/_NUM
+static int8_t held_layer    = -1; // -1 none, else current held thumb layer
+static bool   thumb_outer_down  = false;
+static bool   thumb_middle_down = false;
+static bool   thumb_inner_down  = false;
+
+static inline int8_t thumb_layer_from_key(uint16_t keycode) {
+    if (keycode == THUMB_OUTER)  return _NAV;
+    if (keycode == THUMB_MIDDLE) return _SPEC;
+    if (keycode == THUMB_INNER)  return _NUM;
+    return -1;
+}
+static inline void set_thumb_flag(uint16_t keycode, bool down) {
+    if (keycode == THUMB_OUTER)  thumb_outer_down  = down;
+    if (keycode == THUMB_MIDDLE) thumb_middle_down = down;
+    if (keycode == THUMB_INNER)  thumb_inner_down  = down;
+}
+static inline bool any_thumb_down(void) {
+    return thumb_outer_down || thumb_middle_down || thumb_inner_down;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+    // Keymaps (LAYOUT_split_3x5_3) — left thumb order: inner, middle, outer
 // ─────────────────────────────────────────────────────────────────────────────
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -198,22 +205,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Optional: simple combo to toggle default layer (outer‑thumb + Enter)
-// Requires: COMBO_ENABLE = yes and (optionally) COMBO_ALLOW_ACTION_KEYS
+// Combo: outer thumb + Enter → toggle default layer
 // ─────────────────────────────────────────────────────────────────────────────
 #ifdef COMBO_ENABLE
 enum combo_events { CB_PDF_TOG };
 const uint16_t PROGMEM combo_pdf_tog[] = { THUMB_OUTER, KC_ENT, COMBO_END };
 combo_t key_combos[] = { [CB_PDF_TOG] = COMBO_ACTION(combo_pdf_tog), };
-// Provide COMBO_LEN for branches that require a strong symbol; mark used to avoid LTO stripping
 __attribute__((used)) uint16_t COMBO_LEN = (uint16_t)(sizeof(key_combos) / sizeof(key_combos[0]));
-// Also provide legacy macro in case your core references it at compile time
 #ifndef COMBO_LEN
-# define COMBO_LEN (sizeof(key_combos) / sizeof(key_combos[0]))
+#    define COMBO_LEN (sizeof(key_combos) / sizeof(key_combos[0]))
 #endif
 void process_combo_event(uint16_t combo_index, bool pressed) {
     if (combo_index == CB_PDF_TOG && pressed) {
-        // Toggle persistent default layer between QWERTY and DH
         if (layer_state_cmp(default_layer_state, _DH)) {
             set_single_persistent_default_layer(_BASE);
         } else {
@@ -224,7 +227,7 @@ void process_combo_event(uint16_t combo_index, bool pressed) {
 #endif
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Persistent default layer keycodes
+// process_record_user: default-layer keys + compact thumb latch handling
 // ─────────────────────────────────────────────────────────────────────────────
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
@@ -241,31 +244,39 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
     }
 
-    // ── Thumb‑hold tracking (don’t block normal LT/MO behavior) ────────────
-    if (keycode == THUMB_OUTER || keycode == THUMB_MIDDLE || keycode == THUMB_INNER) {
+    // Thumb tracking (don’t block LT/MO normal behavior)
+    int8_t tl = thumb_layer_from_key(keycode);
+    if (tl >= 0) {
         if (record->event.pressed) {
-            lt_left_held  = true;
-            lt_left_layer = (keycode == THUMB_OUTER) ? _NAV
-                           : (keycode == THUMB_MIDDLE) ? _SPEC
-                                                        : _NUM;
+            set_thumb_flag(keycode, true);
+            held_layer = tl;
         } else {
-            lt_left_held  = false;
-            // If latched, re‑assert the layer after MO/LT tries to clear it
-            if (lt_latched) { layer_on(lt_left_layer); }
+            set_thumb_flag(keycode, false);
+
+            if (latched_layer == tl) {
+                // IMPORTANT: swallow the release so LT/MO can't layer_off()
+                if (!any_thumb_down()) { held_layer = -1; }
+                return false;
+            }
+
+            if (!any_thumb_down()) { held_layer = -1; }
         }
-        return true; // keep Esc/Tab taps working
+        return true;
     }
 
-    // ── C key latches/unlatches the last held left‑thumb layer ─────────────
+    // C toggles latch: prefer currently-held thumb; else toggle existing latch
     if (keycode == KC_C && record->event.pressed) {
-        if (lt_left_held && !lt_latched) {
-            layer_on(lt_left_layer);
-            lt_latched = true;
-            return false; // swallow 'c' on latch (delete if you prefer to type 'c')
-        } else if (lt_latched) {
-            layer_off(lt_left_layer);
-            lt_latched = false;
-            return false; // swallow 'c' on unlatch
+        int8_t target = any_thumb_down() ? held_layer : latched_layer;
+        if (target >= 0) {
+            if (latched_layer == target) {
+                layer_off(latched_layer);
+                latched_layer = -1;
+            } else {
+                if (latched_layer >= 0) layer_off(latched_layer);
+                layer_on(target);
+                latched_layer = target;
+            }
+            return false; // swallow 'c' on toggle; delete if you want to type 'c'
         }
     }
 
@@ -273,51 +284,35 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mod‑Tap tuning — reduce HRM misfires on fast rolls
-// * Per‑key TAPPING_TERM: 220ms on HRMs; snappier 170ms on the two LT thumbs
-// * Favor TAP on HRMs when interrupted by another key
-// * Do not auto‑promote to HOLD when another key is pressed (safer HRMs)
+// Mod‑Tap tuning — fewer HRM misfires, snappier thumbs
 // ─────────────────────────────────────────────────────────────────────────────
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
-    if (is_hrm(keycode)) return 220;                             // HRMs
-    if (keycode == THUMB_OUTER || keycode == THUMB_MIDDLE) return 170; // LT thumbs
+    if (is_hrm(keycode)) return 215;                              // HRMs
+    if (keycode == THUMB_OUTER || keycode == THUMB_MIDDLE) return 160; // Esc/Tab LTs
     return TAPPING_TERM;
 }
 
 bool get_ignore_mod_tap_interrupt(uint16_t keycode, keyrecord_t *record) {
-    return is_hrm(keycode); // HRMs: rolling into the next key stays a TAP
+    return is_hrm(keycode); // HRMs: rolling into next key stays a TAP
 }
 
 bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
-    return false;           // Don’t auto‑promote to HOLD on overlap (safer HRMs)
-    // If you want it ON for non‑HRMs only: return !is_hrm(keycode);
+    return false;           // Don’t auto‑promote to HOLD on overlap
 }
 
 #ifdef QUICK_TAP_TERM
 uint16_t get_quick_tap_term(uint16_t keycode, keyrecord_t *record) {
-    if (is_hrm(keycode)) return 90; // helps double‑letters like "ll" / "ee"
+    if (is_hrm(keycode)) return 90; // helps double letters like "ll" / "ee"
     return QUICK_TAP_TERM;
 }
 #endif
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RGBLIGHT per‑layer cues + soft hint when default = Colemak‑DH
+// RGBLIGHT: per‑layer colours + soft Colemak‑DH hint
 // ─────────────────────────────────────────────────────────────────────────────
 #ifdef RGBLIGHT_ENABLE
-// • Keep this lightweight: RGBLIGHT_LAYERS only (no animations)
-// • rules.mk:  RGBLIGHT_ENABLE = yes (RGB_MATRIX_ENABLE = no)
-// • config.h:  pin/count already defined; add #define RGBLIGHT_LAYERS
-
-// Colour plan (all LEDs, easy to see):
-//  DH default hint → soft cyan (low V)  [lowest priority layer]
-//  CapsLock       → magenta
-//  _NUM           → red
-//  _SPEC          → green
-//  _NAV           → blue
-
-// Soft cyan hint when default layer is _DH
 const rgblight_segment_t PROGMEM dh_hint_layer[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, RGBLED_NUM, HSV_CYAN}   // H≈cyan, lower brightness for a soft glow
+    {0, RGBLED_NUM, HSV_CYAN}
 );
 const rgblight_segment_t PROGMEM caps_layer[] = RGBLIGHT_LAYER_SEGMENTS(
     {0, RGBLED_NUM, HSV_MAGENTA}
@@ -332,45 +327,43 @@ const rgblight_segment_t PROGMEM nav_layer[]  = RGBLIGHT_LAYER_SEGMENTS(
     {0, RGBLED_NUM, HSV_BLUE}
 );
 
-// Order matters: later layers take priority over earlier ones where they overlap.
-// Put the DH hint first so NAV/SPEC/NUM and Caps can override it when active.
 const rgblight_segment_t* const PROGMEM my_rgb_layers[] = RGBLIGHT_LAYERS_LIST(
-    dh_hint_layer,  // index 0
-    caps_layer,     // index 1
-    num_layer,      // index 2
-    spec_layer,     // index 3
-    nav_layer       // index 4
+    dh_hint_layer,  // 0: default DH hint (lowest priority)
+    caps_layer,     // 1: CapsLock
+    num_layer,      // 2: _NUM
+    spec_layer,     // 3: _SPEC
+    nav_layer       // 4: _NAV
 );
 
 void keyboard_post_init_user(void) {
-    rgblight_layers = my_rgb_layers; // register layers
-
-    // Ensure a known, neutral base on boot (overrides any red color left in EEPROM)
-    rgblight_enable_noeeprom(); // turn RGB on (no EEPROM write)
-    rgblight_mode_noeeprom(RGBLIGHT_MODE_STATIC_LIGHT); // static mode so layers show cleanly
-    rgblight_sethsv_noeeprom(HSV_OFF); // base OFF; layers will add color
-
-    // Apply DH hint immediately if DH is the default layer
-    rgblight_set_layer_state(0 /*dh_hint_layer*/, layer_state_cmp(default_layer_state, _DH));
+    rgblight_layers = my_rgb_layers;                   // register segments
+    rgblight_enable_noeeprom();                        // force neutral base
+    rgblight_mode_noeeprom(RGBLIGHT_MODE_STATIC_LIGHT);
+    rgblight_sethsv_noeeprom(HSV_OFF);
+    rgblight_set_layer_state(0, layer_state_cmp(default_layer_state, _DH));
 }
 
-// Host LED feedback (CapsLock)
 bool led_update_user(led_t led_state) {
-    rgblight_set_layer_state(1 /*caps_layer*/, led_state.caps_lock);
-    return true; // let QMK handle the actual host LED too
+    rgblight_set_layer_state(1, led_state.caps_lock);
+    return true;
 }
 
-// Momentary per-layer colours
 layer_state_t layer_state_set_user(layer_state_t state) {
-    rgblight_set_layer_state(2 /*num_layer*/,  layer_state_cmp(state, _NUM));
-    rgblight_set_layer_state(3 /*spec_layer*/, layer_state_cmp(state, _SPEC));
-    rgblight_set_layer_state(4 /*nav_layer*/,  layer_state_cmp(state, _NAV));
+    rgblight_set_layer_state(2, layer_state_cmp(state, _NUM));
+    rgblight_set_layer_state(3, layer_state_cmp(state, _SPEC));
+    rgblight_set_layer_state(4, layer_state_cmp(state, _NAV));
     return state;
 }
 
-// Default-layer change: show soft cyan hint when default = _DH
 layer_state_t default_layer_state_set_user(layer_state_t state) {
-    rgblight_set_layer_state(0 /*dh_hint_layer*/, layer_state_cmp(state, _DH));
+    rgblight_set_layer_state(0, layer_state_cmp(state, _DH));
     return state;
 }
+#endif
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tap Dance (optional stub)
+// ─────────────────────────────────────────────────────────────────────────────
+#ifdef TAP_DANCE_ENABLE
+qk_tap_dance_action_t tap_dance_actions[] = {};
 #endif
